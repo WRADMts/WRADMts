@@ -1,11 +1,10 @@
 # WRADMts
 
-Repository for our paper, "Diffeomorphic Aligned Robust Anomaly Detection for MUltivariate Time Series" co-authored by: Abilasha S, Sahely Bhadra. This combines two modules 
-1) Diffeomorphic Alignment Network ([dtan](https://github.com/BGU-CS-VIL/dtan))
-2) Graph Learning module
+Repository for our paper, "Warping resilient Robust Anomaly Detection for MUltivariate Time Series" .
+This combines two modules 
+1) Temporal Alignment Network (diffeomorphic transformations on time series to align similar signals)
+2) Graph Learning module (to learn intermetric dependencies)
 
-## Author of this software
-Abilasha S (email: 111814001@smail.iitpkd.ac.in)
 
 
 ## Installation
