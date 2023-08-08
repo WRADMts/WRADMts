@@ -11,7 +11,7 @@ This combines two modules
 We recommend installing a [virtual environment](https://docs.conda.io/projects/conda/en/latest/user-guide/tasks/manage-environments.html#creating-an-environment-with-commands) via Anaconda.
 For instance:
 ```
-conda create -n drad
+conda create -n wradmts
 ```
 Or you can create docker container by following instructions given [here](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html) and work on it
 
@@ -22,7 +22,7 @@ pip install -r requirements.txt
 
 2. Download data. SWaT and WADI datasets can be requested from [iTrust](https://itrust.sutd.edu.sg/). Other datasets are given in data folder on each modules separately. All datasets are preprocessed and this can be done by executing.
 ```
-python ./graph_learn/scripts/process_all.py
+python /scripts/process_wadi.py
 ```
 Data format for graph learn module
 ```
