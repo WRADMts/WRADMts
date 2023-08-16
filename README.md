@@ -51,4 +51,4 @@ data
     # or using cpu
     bash ./scripts/<dataset>.sh cpu <dataset>
 ```
-You can change running parameters in the each .sh file.
+You can change running parameters in  each .sh file.
