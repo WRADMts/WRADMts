@@ -41,16 +41,14 @@ class GraphLayer(MessagePassing):
 
     def forward(self, x, edge_index, weights):
         """"""
+
+        ## affine transformation on x ie Wx
         if torch.is_tensor(x):
             x = self.lin(x)                                       
             x = (x, x)
         else:
             x = (x[0], x[1])
             x = (self.lin(x[0]), self.lin(x[1]))
-
-        # edge_index, _ = remove_self_loops(edge_index)                                                         ##add and remove self loop
-        # edge_index, _ = add_self_loops(edge_index,
-        #                                num_nodes=x.size(self.node_dim))
 
         out = self.propagate(edge_index, x=x, weights=weights)
 
@@ -62,23 +60,14 @@ class GraphLayer(MessagePassing):
         if self.bias is not None:
             out = out + self.bias
 
-        # return out, self.weights
         return out
 
 
     def message(self, x_j, weights):
 
-        # print(edge_index_j)
-        # print(x_j.shape)
-
         x_j = x_j.view(-1, self.heads, self.out_channels)
-        # print(x_j.shape)
-        # weights=F.dropout(weights, self.dropout, self.training)
-        # self.weights = weights
 
-        # weights = weights.view(-1, self.heads, 1)
-
-        # return x_j
+        ### multiply learned intervariable dependencies with learned weights (acts as attention)
         return x_j * weights.view(-1, self.heads, 1)
 
 

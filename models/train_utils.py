@@ -8,7 +8,7 @@ class ExperimentClass():
         self.lr = lr
         self.exp_name = exp_name
         self.device = device
-        self.dtan_network = None
+        self.wtan_network = None
 
         self.loss_tracker = {
             "train": self.loss_dict(name="train"),
@@ -16,11 +16,11 @@ class ExperimentClass():
             "test": self.loss_dict(name="test")
         }
 
-    def add_DTAN_arg(self, DTAN_args):
-        self.DTAN_args = DTAN_args
+    def add_WTAN_arg(self, WTAN_args):
+        self.WTAN_args = WTAN_args
 
-    def get_DTAN_args(self):
-        return self.DTAN_args
+    def get_WTAN_args(self):
+        return self.WTAN_args
 
     def add_model(self, model):
         self.model = model
@@ -63,11 +63,11 @@ class ExperimentClass():
         }
         return loss_dict
 
-    def add_DTAN_model(self, dtan_net):
-        self.dtan_network = dtan_net
+    def add_WTAN_model(self, wtan_net):
+        self.wtan_network = wtan_net
 
-    def get_DTAN_model(self):
-        return self.dtan_network
+    def get_WTAN_model(self):
+        return self.wtan_network
 
     def __str__(self):
         return str(self.__dict__)
@@ -92,7 +92,7 @@ class ExperimentsManager():
         return str(self.__dict__)
 
 
-class DTAN_args:
+class WTAN_args:
     def __init__(self,
                  tess_size = 32, smoothness_prior = True, lambda_smooth = 1,
                  lambda_var = 0.1, n_recurrences = 1, zero_boundary = True, T=None
