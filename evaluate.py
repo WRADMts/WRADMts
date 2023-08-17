@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import precision_score, recall_score, roc_auc_score, f1_score
 
-
+## finding anomaly scores from reconstruction and prediction output
 def get_full_err_scores(np_test_result_recons, np_test_result_pred, np_test_ground_recons, np_test_ground_pred, test_labels):
 
     np_test_result_recons = np.array(np_test_result_recons)
@@ -20,11 +20,6 @@ def get_full_err_scores(np_test_result_recons, np_test_result_pred, np_test_grou
     labels = test_labels
 
     for i in range(feature_num):
-
-        # for j in range(0,10500,100):
-        #     plt.plot(np_test_ground_recons[j,i,:])
-        #     plt.plot(np_test_result_recons[j,i,:])
-        #     plt.show()
 
         recons_scores = get_err_scores_recons(np_test_result_recons[:,i,:], np_test_ground_recons[:,i,:])
 
@@ -45,7 +40,7 @@ def get_full_err_scores(np_test_result_recons, np_test_result_pred, np_test_grou
 
     return recons_all_scores, pred_all_scores
 
-
+## reconstruction error calculation
 def get_err_scores_recons(test_predict, test_gt):
 
     length=len(test_predict)
@@ -55,26 +50,28 @@ def get_err_scores_recons(test_predict, test_gt):
     count_inter = np.zeros(length+win-1)
     count_arr = np.ones_like(test_predict)
 
+    ## finding diffrence between actual and predicted
+
     test_delta = np.abs(np.subtract(
                         np.array(test_predict).astype(np.float64), 
                         np.array(test_gt).astype(np.float64)
                     ))
-
-    # n_err_mid, n_err_iqr = get_err_median_and_iqr(test_delta)
-
-    # test_delta=test_delta.sum(axis=1)##Recons
-
+    ## finding error for each timestamp by taking aggregation over multiple windows
     for i in range(length):
         err_inter[i:i+win]+=test_delta[i]
         count_inter[i:i+win]+=count_arr[i]
 
     test_delta = err_inter/count_inter
 
+    ## normalizing error scores
+
     n_err_mid, n_err_iqr = get_err_median_and_iqr(test_delta)
 
     epsilon=1e-2
 
     err_scores = (test_delta - n_err_mid) / ( np.abs(n_err_iqr) +epsilon)
+
+    ## smoothing errors
 
     smoothed_err_scores = np.zeros(err_scores.shape)
     before_num = 0
@@ -83,17 +80,14 @@ def get_err_scores_recons(test_predict, test_gt):
    
     return smoothed_err_scores
 
-
+## prediction error calculation
 def get_err_scores_pred(test_predict, test_gt):
+    ## finding diffrence between actual and predicted
 
     test_delta = np.abs(np.subtract(
                         np.array(test_predict).astype(np.float64), 
                         np.array(test_gt).astype(np.float64)
                     ))
-
-    # plt.plot(test_gt)
-    # plt.plot(test_predict)
-    # plt.show()
 
     n_err_mid, n_err_iqr = get_err_median_and_iqr(test_delta)
 
@@ -113,17 +107,14 @@ def get_loss(predict, gt):
     return eval_mseloss(predict, gt)
 
 def get_f1_scores(total_err_scores, gt_labels, topk=1):
-    # remove the highest and lowest score at each timestep
     total_features = total_err_scores.shape[0]
-
-    # topk_indices = np.argpartition(total_err_scores, range(total_features-1-topk, total_features-1), axis=0)[-topk-1:-1]
+    ## finding topk error scores
     topk_indices = np.argpartition(total_err_scores, range(total_features-topk-1, total_features), axis=0)[-topk:]
     
     topk_indices = np.transpose(topk_indices)
 
     total_topk_err_scores = []
     topk_err_score_map=[]
-    # topk_anomaly_sensors = []
 
     for i, indexs in enumerate(topk_indices):
        
@@ -154,8 +145,6 @@ def get_val_performance_data(total_err_scores, normal_scores, gt_labels, topk=1)
         pred_labels[i] = int(pred_labels[i])
         gt_labels[i] = int(gt_labels[i])
 
-    print(np.where(pred_labels==1)[0])
-
     pre = precision_score(gt_labels, pred_labels)
     rec = recall_score(gt_labels, pred_labels)
 
@@ -171,32 +160,30 @@ def get_scores_topk(total_err_scores, topk=1):
 
     total_features = total_err_scores.shape[0]
 
-    # topk_indices = np.argpartition(total_err_scores, range(total_features-1-topk, total_features-1), axis=0)[-topk-1:-1]
-    topk_indices = np.argpartition(total_err_scores, range(total_features-topk-1, total_features), axis=0)[-topk:]                               ##topk indices in each timestamp with high err here top1
+    topk_indices = np.argpartition(total_err_scores, range(total_features-topk-1, total_features), axis=0)[-topk:]                              
 
     total_topk_err_scores = []
     topk_err_score_map=[]
 
-    total_topk_err_scores = np.sum(np.take_along_axis(total_err_scores, topk_indices, axis=0), axis=0)                                          ##add err scores if topk here err score is err itself
+    total_topk_err_scores = np.sum(np.take_along_axis(total_err_scores, topk_indices, axis=0), axis=0)                                     
 
     return total_topk_err_scores
 
 
 def get_best_performance_data(total_topk_err_scores, gt_labels):
+    ## finding threshold for f1 score calculation
 
-    final_topk_fmeas ,thresolds = eval_scores(total_topk_err_scores, gt_labels, 400, return_thresold=True)                                      ##f1 scores and corresponding thresholds
+    final_topk_fmeas ,thresolds = eval_scores(total_topk_err_scores, gt_labels, 400, return_thresold=True)                                      
 
-    th_i = final_topk_fmeas.index(max(final_topk_fmeas))                                                                                        ##max f1 score and correspondng index
+    th_i = final_topk_fmeas.index(max(final_topk_fmeas))                                                                                       
     thresold = thresolds[th_i]
 
-    pred_labels = np.zeros(len(total_topk_err_scores))                                                                                          ##all indices above threshold positive
+    pred_labels = np.zeros(len(total_topk_err_scores))                                                                                          
     pred_labels[total_topk_err_scores > thresold] = 1
 
     for i in range(len(pred_labels)):
         pred_labels[i] = int(pred_labels[i])
         gt_labels[i] = int(gt_labels[i])
-
-    # print(np.where(pred_labels==1)[0])
 
     prec_bfr = precision_score(gt_labels, pred_labels)
     rec_bfr = recall_score(gt_labels, pred_labels)
@@ -226,7 +213,6 @@ def get_best_performance_data(total_topk_err_scores, gt_labels):
     pred_labels = np.array(pred_labels)
     gt_labels = np.array(gt_labels)
 
-    # print(topk_indices.squeeze()[np.where(pred_labels==1)[0]])
 
     pre = precision_score(gt_labels, pred_labels)
     rec = recall_score(gt_labels, pred_labels)

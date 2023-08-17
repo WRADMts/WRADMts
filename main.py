@@ -16,10 +16,10 @@ from util.iostream import printsep
 from datasets.TimeDataset import TimeDataset
 
 
-from models.GDN import GDN
-from models.train_utils import DTAN_args
-from DTAN.DTAN_layer import DTAN
-from dtan_gdn import CombinedModel
+from models.GLM import GLM
+from models.train_utils import WTAN_args
+from WTAN.WTAN_layer import WTAN
+from wtan_gdn import CombinedModel
 
 
 from train import train
@@ -48,35 +48,11 @@ class Main():
 
         dataset = self.env_config['dataset'] 
 
-        # Arguments for DTAN class
-        # DTAN args with smoothness prior
-        self.DTANargs1 = DTAN_args(tess_size=32,
-                              smoothness_prior=True,
-                              lambda_smooth=1,
-                              lambda_var=0.1,
-                              n_recurrences=1,
-                              zero_boundary=True,
-                              )
-
-        # DTAN args tess 4
-        self.DTANargs2 = DTAN_args(tess_size=32,
-                              smoothness_prior=False,
-                              n_recurrences=1,
-                              zero_boundary=True,
-                              )
-
+        ## read input
 
         train_orig = pd.read_csv(f'./data/{dataset}/train.csv', sep=',', index_col=0)
-        # plt.plot(train_orig.values)
-        # plt.show()
-        test_orig = pd.read_csv(f'./data/{dataset}/test.csv', sep=',', index_col=0)
-        # self.test_plot=test_orig.values
-        # print(self.test_plot.shape)    
+        test_orig = pd.read_csv(f'./data/{dataset}/test.csv', sep=',', index_col=0)   
         train, test = train_orig, test_orig  
-        # train, test = train_orig, test_orig.iloc[int(0.7*len(test_orig)):]
-        # train_more, test = test_orig.iloc[:int(train_config['train_split']*len(test_orig))], test_orig.iloc[int(0.7*len(test_orig)):]
-        # train = pd.concat([train_orig, train_more], axis=0)
-        # print(len(train))
 
         if 'attack' in train.columns:
             train = train.drop(columns=['attack'])
@@ -87,10 +63,10 @@ class Main():
         set_device(env_config['device'])
         self.device = get_device()
 
+        ## build graph edges
+
         fc_edge_index = build_loc_net(fc_struc, list(train.columns), feature_map=feature_map)
         fc_edge_index = torch.tensor(fc_edge_index, dtype = torch.long)
-
-        # print(fc_edge_index)
 
         self.feature_map = feature_map
 
@@ -122,7 +98,26 @@ class Main():
         edge_index_sets = []
         edge_index_sets.append(fc_edge_index)
 
-        self.gdn = GDN(edge_index_sets, len(feature_map),
+        # Arguments for WTAN network with novel alignment loss
+        # WTAN args with smoothness prior
+        self.WTANargs1 = WTAN_args(tess_size=32,
+                              smoothness_prior=True,
+                              lambda_smooth=1,
+                              lambda_var=0.1,
+                              n_recurrences=1,
+                              zero_boundary=True,
+                              )
+
+        ## alignment network instance
+        channels, input_shape = self.train_dataloader.dataset[0][0].shape
+        self.wtan = WTAN(input_shape, channels, tess=[self.WTANargs1.tess_size,], n_recurrence=self.WTANargs1.n_recurrences,
+                    zero_boundary=self.WTANargs1.zero_boundary, device='gpu').to(self.device)
+
+        self.WTANargs1.T = self.wtan.get_basis()
+
+        ##Graph learning network instance
+
+        self.glm = GLM(edge_index_sets, len(feature_map),
                 dim=train_config['dim'], 
                 input_dim=train_config['slide_win'],
                 out_layer_num=train_config['out_layer_num'],
@@ -130,15 +125,9 @@ class Main():
                 a_init=train_config['a_init'],   
             ).to(self.device)
 
-        channels, input_shape = self.train_dataloader.dataset[0][0].shape
-        self.dtan = DTAN(input_shape, channels, tess=[self.DTANargs1.tess_size,], n_recurrence=self.DTANargs1.n_recurrences,
-                    zero_boundary=self.DTANargs1.zero_boundary, device='gpu').to(self.device)
 
-        self.DTANargs1.T = self.dtan.get_basis()
-
-        # Create an instance of the combined model
-        # self.model = CombinedModel(self.gdn)
-        self.model = CombinedModel(self.dtan, self.gdn)
+        # Create an instance of combined model (alignment+graph learning)
+        self.model = CombinedModel(self.wtan, self.glm)
 
     def run(self):
 
@@ -148,19 +137,7 @@ class Main():
         else:
             self.model_save_path = self.get_save_path()[0]
 
-            # self.train_log = train(self.model, self.model_save_path,
-            #     config = self.train_config,
-            #     train_dataloader=self.train_dataloader,
-            #     val_dataloader=self.val_dataloader,
-            #     feature_map=self.feature_map,
-            #     test_dataloader=self.test_dataloader,
-            #     test_dataset=self.test_dataset,
-            #     train_dataset=self.train_dataset,
-            #     dataset_name=self.env_config['dataset'],
-            #     gt_labels = self.labels
-            # )
-
-            self.train_log = train(self.DTANargs1, self.model, self.model_save_path,
+            self.train_log = train(self.WTANargs1, self.model, self.model_save_path,
                 config = self.train_config,
                 train_dataloader=self.train_dataloader,
                 val_dataloader=self.val_dataloader,
@@ -180,17 +157,13 @@ class Main():
         self.model.load_state_dict(torch.load(self.model_save_path))
         best_model = self.model.to(self.device)
 
-
+        ## computing anomaly scores
         _, self.test_result_recons, self.test_result_pred, self.test_ground_recons, self.test_ground_pred, test_labels = test(best_model, self.test_dataloader, 'test')
-        # _, self.train_result_recons, self.train_result_pred, self.train_ground_recons, self.train_ground_pred, train_labels = test(best_model, self.train_dataloader)
-        # _, self.val_result_recons, self.val_result_pred, self.val_ground_recons, self.val_ground_pred, val_labels = test(best_model, self.val_dataloader)
         test_scores_recons, test_scores_pred = self.get_score(self.test_result_recons, self.test_result_pred, self.test_ground_recons, self.test_ground_pred, test_labels)
-        # normal_scores_recons, normal_scores_pred = self.get_score(self.train_result_recons, self.train_result_pred, self.train_ground_recons, self.train_ground_pred, train_labels)
-        # normal_scores_recons, normal_scores_pred = self.get_score(self.val_result_recons, self.val_result_pred, self.val_ground_recons, self.val_ground_pred, val_labels)
         
         top_recons = get_scores_topk(test_scores_recons, topk=self.train_config['topk'])
         top_pred = get_scores_topk(test_scores_pred, topk=self.train_config['topk'])
-
+        ## normalizing anomaly scores
         normalized_top_recons = (top_recons-np.min(top_recons))/(np.max(top_recons)-np.min(top_recons))
         normalized_top_pred = (top_pred-np.min(top_pred))/(np.max(top_pred)-np.min(top_pred))
 
@@ -200,83 +173,17 @@ class Main():
         top_recons = np.append(top_recons, 0)
         top_pred = np.append(np.zeros(train_config['slide_win']),top_pred)
 
-        # test_scores = train_config['gamma']*test_scores_pred + (1-train_config['gamma'])*test_scores_recons
-        # normal_scores = train_config['gamma']*normal_scores_pred + (1-train_config['gamma'])*normal_scores_recons
-
         test_scores1 = top_pred + top_recons
-        
+        ## combined anomaly score from both reconstruction and prediction
         test_scores = normalized_top_pred + normalized_top_recons
-        # normal_scores = normal_scores_pred + normal_scores_recons
 
-        np.savetxt('as_hai.csv',test_scores, fmt = '%0.2f', delimiter=",")
-
-        top1_best_info = get_best_performance_data(test_scores, self.labels) ##Pred
-        # top1_val_info = get_val_performance_data(normal_scores, val_labels, topk=1)
-
-        # fig, axs = plt.subplots(3)
-        # axs[0].plot(self.test_plot[:,0], color = 'black')
-        # axs[0].set_ylabel('m1' )
-        # axs[1].plot(self.test_plot[:,1], color = 'black')
-        # axs[1].set_ylabel('m2' )
-        # axs[2].plot(self.test_plot[:,2], color = 'black')
-        # axs[2].set_ylabel('m3' )
-        # axs[3].plot(self.test_plot[:,3], color = 'black')
-        # axs[3].set_ylabel('m4' )
-        # axs[4].plot(self.test_plot[:,4], color = 'black')
-        # axs[4].set_ylabel('m5' )
-        # axs[5].plot(self.test_plot[:,5], color = 'black')
-        # axs[5].set_ylabel('m6' )
-        # axs[6].plot(self.test_plot[:,6], color = 'black')
-        # axs[6].set_ylabel('m7' )
-        # axs[7].plot(self.test_plot[:,7], color = 'black')
-        # axs[7].set_ylabel('m8' )
-        # axs[8].plot(test_scores, color = 'red')
-        # axs[8].set_ylabel('as' )
-        # axs[0].plot(self.labels, color = 'red')
-        # axs[0].set_title('Ground Truth' )
-        # axs[1].plot(normalized_top_recons, color = 'green')
-        # axs[1].plot(top1_best_info[-1]*np.ones(len(normalized_top_recons)), color = 'orange')
-        # axs[1].set_title('recons' )
-        # axs[2].plot(normalized_top_pred, color = 'blue')
-        # axs[2].plot(top1_best_info[-1]*np.ones(len(normalized_top_pred)), color = 'orange')
-        # axs[2].set_title('pred' )
-        # fig.tight_layout(pad=0.5)
-        # plt.show()
-
-        # ind1=np.where(np.asarray(self.labels,dtype=int)==1)[0]
-        # ind2=np.where(np.asarray(self.labels,dtype=int)==0)[0]
-        # anom_score_recons = np.zeros(len(normalized_top_recons))
-        # anom_score_recons[ind1]=normalized_top_recons[ind1]
-        # anom_score_pred = np.zeros(len(normalized_top_pred))
-        # anom_score_pred[ind1] = normalized_top_pred[ind1]
-        # anom_score_total = np.zeros(len(test_scores))
-        # anom_score_total = test_scores
-        # # plt.hist(normalized_top_pred[ind1], bins =  50, color = 'blue', alpha = 0.5, label = 'pred_abnormal')
-        # # plt.hist(normalized_top_pred[ind2], bins =  50, color = 'orange', alpha = 0.5, label = 'pred_normal')
-        # # plt.legend()
-        # # plt.show()
-        # # plt.hist(normalized_top_recons[ind1], bins =  50, color = 'blue', alpha = 0.5, label = 'recons_abnormal')
-        # # plt.hist(normalized_top_recons[ind2], bins =  50, color = 'orange', alpha = 0.5, label = 'recons_normal')
-        # # plt.legend()
-        # # plt.show()
-        # # plt.hist(test_scores[ind1], bins =  50, color = 'blue', alpha = 0.5, label = 'abnormal')
-        # # plt.hist(test_scores[ind2], bins =  50, color = 'orange', alpha = 0.5, label = 'normal')
-        # # plt.legend()
-        # # plt.show()
-        # plt.plot(anom_score_recons, label = 'recons_abnormal')
-        # plt.plot(anom_score_pred, label = 'pred_abnormal')
-        # plt.plot(anom_score_total, label = 'total_abnormal')
-        # plt.legend()
-        # plt.show()
-
+        top1_best_info = get_best_performance_data(test_scores, self.labels)
 
         print('=========================** Result **============================\n')
 
         info = None
         if self.env_config['report'] == 'best':
             info = top1_best_info
-        # elif self.env_config['report'] == 'val':
-        #     info = top1_val_info
 
         print(f'F1 score point adj: {info[0]}')
         print(f'F1 score : {info[1]}')
@@ -403,9 +310,8 @@ if __name__ == "__main__":
     
 
     main = Main(train_config, env_config, debug=False)
-    for i in range(args.random_seed, args.random_seed+10, 3):
-        main.run()
-        main.test()
+    main.run()
+    main.test()
 
 
 
