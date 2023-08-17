@@ -23,7 +23,7 @@ def get_fc_graph_struc(dataset):
             struc_map[ft] = []
 
         for other_ft in feature_list:
-            # if other_ft is not ft:                                                            ##changed
+            # if other_ft is not ft:                                         
                 struc_map[ft].append(other_ft)
     
     return struc_map
