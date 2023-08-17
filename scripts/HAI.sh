@@ -3,10 +3,8 @@ DATASET=$2
 
 seed=5
 BATCH_SIZE=128
-#SLIDE_WIN=5
 SLIDE_WIN=100
 dim=16
-# dim=100 ##GNN layer out dim same as slide_win for diff
 out_layer_num=1
 SLIDE_STRIDE=1
 topk=5
@@ -17,7 +15,7 @@ lamda=0.0001
 a_init=2
 weight_p=1
 weight_r=1
-train_split=0.65
+train_split=0.55
 
 
 path_pattern="${DATASET}"

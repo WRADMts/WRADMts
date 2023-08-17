@@ -6,7 +6,6 @@ BATCH_SIZE=128
 #SLIDE_WIN=5
 SLIDE_WIN=100
 dim=128
-# dim=100 ##GNN layer out dim same as slide_win for diff
 out_layer_num=1
 SLIDE_STRIDE=1
 topk=5

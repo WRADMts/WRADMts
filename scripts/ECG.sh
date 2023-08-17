@@ -4,9 +4,7 @@ DATASET=$2
 seed=5
 BATCH_SIZE=128
 SLIDE_WIN=100
-# SLIDE_WIN=100
 dim=64
-# dim=16 ##GNN layer out dim same as slide_win for diff
 out_layer_num=1
 SLIDE_STRIDE=1
 topk=1
@@ -70,7 +68,7 @@ else
         -weight_p $weight_p \
         -weight_r $weight_r \
         -a_init $a_init \
-        # -load_model_path './pretrained/ecg/best_modelplotndvalue.pt' \
+        # -load_model_path './pretrained/ecg/best_model.pt' \
 fi
 
 

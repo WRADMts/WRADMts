@@ -2,7 +2,6 @@ import numpy as np
 import pandas as pd
 import re
 from sklearn.preprocessing import MinMaxScaler
-import statistics
 
 
 # max min(0-1)
@@ -14,12 +13,13 @@ def norm(train, test):
 
     return train_ret, test_ret
 
-def downsample(data, labels, down_len):
+
+# downsample by 10
+def downsample_test(data, labels, down_len):
     np_data = np.array(data)
     np_labels = np.array(labels)
 
     orig_len, col_num = np_data.shape
-
 
     down_time_len = orig_len // down_len
 
@@ -40,11 +40,28 @@ def downsample(data, labels, down_len):
 
     return d_data.tolist(), d_labels.tolist()
 
+def downsample_train(data, down_len):
+    np_data = np.array(data)
+
+    orig_len, col_num = np_data.shape
+
+    down_time_len = orig_len // down_len
+
+    np_data = np_data.transpose()
+
+    d_data = np_data[:, :down_time_len*down_len].reshape(col_num, -1, down_len)
+    d_data = np.median(d_data, axis=2).reshape(col_num, -1)
+
+
+    d_data = d_data.transpose()
+
+    return d_data.tolist()
+
 
 def main():
 
-    test = pd.read_csv('./data/swat/swat_test_full.csv', index_col=0)
-    train = pd.read_csv('./data/swat/swat_train_full.csv', index_col=0)
+    test = pd.read_csv('./data/ecg/test.csv', index_col=0)
+    train = pd.read_csv('./data/ecg/train.csv', index_col=0)
 
 
     test = test.iloc[:, 0:]
@@ -63,45 +80,40 @@ def main():
     print(len(train.columns),train.columns)
 
 
-    train_labels = train.attack
     test_labels = test.attack
 
-    train_labels = train.values[:,-1]
     test_labels = test.values[:,-1]
 
-    train = train.drop(columns=['attack'])
     test = test.drop(columns=['attack'])
 
-    cols = [x for x in test.columns] # remove column name prefixes
+    cols = [x for x in train.columns] # remove column name prefixes
     train.columns = cols
     test.columns = cols
 
     x_train, x_test = norm(train.values, test.values)
+    # x_test = norm(test.values)
 
-    for i, col in enumerate(train.columns):
+    for i, col in enumerate(test.columns):
         train.loc[:, col] = x_train[:, i]
         test.loc[:, col] = x_test[:, i]
 
 
-    d_train_x, d_train_labels = downsample(train.values, train_labels, 10)
-    d_test_x, d_test_labels = downsample(test.values, test_labels, 10)
+    d_train_x = downsample_train(train.values, 10)
+    d_test_x, d_test_labels = downsample_test(test.values, test_labels, 10)
 
     train_df = pd.DataFrame(d_train_x, columns = train.columns)
     test_df = pd.DataFrame(d_test_x, columns = test.columns)
 
     test_df['attack'] = d_test_labels
-    train_df['attack'] = d_train_labels
-
-    train_df = train_df.iloc[2160:]
 
     print(train_df.values.shape)
     print(test_df.values.shape)
 
 
-    train_df.to_csv('./train.csv')
-    test_df.to_csv('./test.csv')
+    train_df.to_csv('./data/ecg/train.csv')
+    test_df.to_csv('./data/ecg/test.csv')
 
-    f = open('./list.txt', 'w')
+    f = open('./data/ecg/list.txt', 'w')
     for col in train.columns:
         f.write(col+'\n')
     f.close()
