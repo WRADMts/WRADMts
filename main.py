@@ -19,7 +19,7 @@ from datasets.TimeDataset import TimeDataset
 from models.GLM import GLM
 from models.train_utils import WTAN_args
 from WTAN.WTAN_layer import WTAN
-from wtan_gdn import CombinedModel
+from wtan_glm import CombinedModel
 
 
 from train import train
