@@ -18,7 +18,7 @@ class CombinedModel(nn.Module):
     
   def forward(self, x, edge_index, mode = ''):
     # Apply the temporal transformation to the feature vectors
-    x, thetas, gamma = self.dtan(x, return_theta=True)
+    x, thetas, gamma = self.wtan(x, return_theta=True)
 
     # Apply the GNN to the graph and feature vectors
     out_recons, out_pred, att_weight = self.glm(x, edge_index)
