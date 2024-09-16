@@ -1,6 +1,6 @@
 # WRADMts
 
-Repository for our paper, "Warping resilient Robust Anomaly Detection for Multivariate Time Series" .
+Repository for our paper, "Warping resilient Robust Anomaly Detection for Multivariate Time Series" (accepted Machine Learning Journal, ACML special track).
 This combines two modules 
 1) Warp Aligning Temporal Transformation (diffeomorphic transformations on time series to align similar signals)
 2) Graph Learning module (to learn temporal and intermetric dependencies)
